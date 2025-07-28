@@ -1,0 +1,19 @@
+{
+    "name": "ROTools",
+    "rootNamespace": "",
+    "references": [
+        "GUID:34a8e09b8eb3d7848a4f5eb9f433d5da",
+        "GUID:c8584e81f08b7944ab9cfb3220aa9c47",
+        "GUID:a37c5d2f07e165043a23f037d5172367",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
