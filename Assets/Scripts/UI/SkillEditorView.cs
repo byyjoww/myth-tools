@@ -1,42 +1,16 @@
-﻿using ROTools.Skills;
-using SLS.UI;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using TMPro;
+﻿using SLS.UI;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.UI;
 
 namespace ROTools.UI
 {
     public class SkillEditorView : View
     {
-        public struct SetupPresenterModel
-        {
-            public string LoadText { get; set; }
-            public bool CanLoad { get; set; }
-            public UnityAction OnLoad { get; set; }
-            public string SaveText { get; set; }
-            public bool CanSave { get; set; }
-            public UnityAction OnSave { get; set; }
-        }
-
-        public struct DBPresenterModel
-        {
-            public IEnumerable<MobDataView.PresenterModel> Mobs { get; set; }
-        }
-
-        public struct MobPresenterModel
+        public struct PresenterModel
         {
             public string NameText { get; set; }
             public string Name { get; set; }
-            public IEnumerable<MobSkillDataView.PresenterModel> Skills { get; set; }
-        }
 
-        public struct MobSkillPresenterModel
-        {
             public string SkillText { get; set; }
             public int CurrentSkill { get; set; }
             public string[] SkillOptions { get; set; }
@@ -92,21 +66,6 @@ namespace ROTools.UI
             public UnityAction<int, string> OnSkillExtraChanged { get; set; }
         }
 
-        [Header("Common")]
-        [SerializeField] private Image loadingPanel = default;
-        [SerializeField] private GameObject leftBar = default;
-        [SerializeField] private GameObject rightArea = default;
-
-        [Header("Mob List")]
-        [SerializeField] private TMP_Text loadText = default;
-        [SerializeField] private SLSButton load = default;
-        [SerializeField] private TMP_Text saveText = default;
-        [SerializeField] private SLSButton save = default;
-        [SerializeField] private ViewElementPoolSpawner<MobDataView> mobDataViewPool = default;
-
-        [Header("Mob Skill List")]
-        [SerializeField] private ViewElementPoolSpawner<MobSkillDataView> mobSkillDataViewPool = default;
-
         [Header("Mob Skill Left")]
         [SerializeField] private InfoField mobName = default;
         [SerializeField] private DropdownField skill = default;
@@ -143,56 +102,9 @@ namespace ROTools.UI
         [SerializeField] private InputField extra14 = default;
         [SerializeField] private InputField extra15 = default;
 
-        private Dictionary<int, MobDataView> spawnedMobData = new Dictionary<int, MobDataView>();
-        private MobDataView selectedMobData = default;
-
-        private Dictionary<string, MobSkillDataView> spawnedMobSkillData = new Dictionary<string, MobSkillDataView>();
-        private MobSkillDataView selectedMobSkillData = default;
-
-        public void Setup(SetupPresenterModel model)
-        {
-            rightArea.SetActive(false);
-
-            loadText.text = model.LoadText;
-            SetButtonAction(load, model.OnLoad, model.CanLoad);
-
-            saveText.text = model.SaveText;
-            SetButtonAction(save, model.OnSave, model.CanSave);
-
-            spawnedMobData.Clear();
-            ClearSelectedMobData();
-
-            spawnedMobSkillData.Clear();
-            ClearSelectedMobSkillData();
-
-            LoadMobs(new MobDataView.PresenterModel[0]);
-            LoadSkills(new MobSkillDataView.PresenterModel[0]);
-        }
-
-        public void SelectSkillDB(DBPresenterModel model)
-        {
-            rightArea.SetActive(true);
-
-            spawnedMobData.Clear();
-            ClearSelectedMobData();
-
-            spawnedMobSkillData.Clear();
-            ClearSelectedMobSkillData();
-
-            LoadMobs(model.Mobs);
-        }
-
-        public void SelectMob(MobPresenterModel model)
-        {
-            spawnedMobSkillData.Clear();
-            ClearSelectedMobSkillData();
-
+        public void Setup(PresenterModel model)
+        {            
             mobName.Setup(model.NameText, model.Name);
-            LoadSkills(model.Skills);
-        }
-
-        public void SelectMobSkill(MobSkillPresenterModel model)
-        {
             skill.Setup(model.SkillText, model.SkillOptions, model.CurrentSkill, model.OnSkillOptionChanged);
             level.Setup(model.SkillLevelText, model.SkillLevel, model.OnSkillLevelChanged);
             rate.Setup(model.RateText, model.Rate, model.OnSkillRateChanged);
@@ -224,97 +136,6 @@ namespace ROTools.UI
             extra13.Setup(model.Extras[12].Text, model.Extras[12].Value, val => model.OnSkillExtraChanged?.Invoke(12, val));
             extra14.Setup(model.Extras[13].Text, model.Extras[13].Value, val => model.OnSkillExtraChanged?.Invoke(13, val));
             extra15.Setup(model.Extras[14].Text, model.Extras[14].Value, val => model.OnSkillExtraChanged?.Invoke(14, val));
-        }
-
-        public void UpdateMobSkillDataInList(string instanceID, string name)
-        {
-            if (spawnedMobSkillData.TryGetValue(instanceID, out MobSkillDataView view))
-            {
-                view.Setup(name);
-            }
-        }
-
-        public void SetLoading(bool isLoading)
-        {
-            loadingPanel.gameObject.SetActive(isLoading);
-        }
-
-        public void OnSelectMobData(int id)
-        {
-            if (spawnedMobData.TryGetValue(id, out MobDataView view))
-            {
-                ClearSelectedMobData();
-                view.SetSelected(true);
-                selectedMobData = view;
-            }
-        }
-
-        private void ClearSelectedMobData()
-        {
-            if (selectedMobData != null)
-            {
-                selectedMobData.SetSelected(false);
-                selectedMobData = null;
-            }
-        }
-
-        private void LoadMobs(IEnumerable<MobDataView.PresenterModel> mobs)
-        {
-            int numOfElements = mobs.Count();
-            var views = mobDataViewPool.Set(numOfElements);
-            for (int i = 0; i < numOfElements; i++)
-            {
-                var view = views.ElementAt(i);
-                var data = mobs.ElementAt(i);
-                view.Setup(data);
-
-                // cache it for updating later
-                spawnedMobData.Add(data.ID, view);
-                if (data.IsSelected)
-                {
-                    ClearSelectedMobData();
-                    selectedMobData = view;
-                }
-            }
-        }
-
-        public void OnSelectMobSkillData(string id)
-        {
-            if (spawnedMobSkillData.TryGetValue(id, out MobSkillDataView view))
-            {
-                ClearSelectedMobSkillData();
-                view.SetSelected(true);
-                selectedMobSkillData = view;
-            }
-        }
-
-        private void ClearSelectedMobSkillData()
-        {
-            if (selectedMobSkillData != null)
-            {
-                selectedMobSkillData.SetSelected(false);
-                selectedMobSkillData = null;
-            }
-        }
-
-        private void LoadSkills(IEnumerable<MobSkillDataView.PresenterModel> skills)
-        {
-            int numOfElements = skills.Count();
-            var views = mobSkillDataViewPool.Set(numOfElements);
-            for (int i = 0; i < numOfElements; i++)
-            {
-                var view = views.ElementAt(i);
-                var data = skills.ElementAt(i);
-                view.Setup(data);
-
-                // cache it for updating later
-                spawnedMobSkillData.Add(data.InstanceID, view);
-                if (data.IsSelected)
-                {
-                    ClearSelectedMobSkillData();
-                    selectedMobSkillData = view;
-                }
-            }
         }
     }
 }

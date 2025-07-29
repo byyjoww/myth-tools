@@ -1,7 +1,8 @@
+using ROTools.Mobs;
+using SLS.Core.Extensions;
 using SLS.Core.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine.Events;
 
@@ -10,48 +11,36 @@ namespace ROTools.Skills
     public class SkillEditor
     {
         private IUnityLogger logger = default;
-        private ISkillDBParser parser = default;
-        private ISkillDBBuilder builder = default;
+        private MobProvider mobProvider = default;
+        private SkillProvider skillProvider = default;
 
-        // old file data
-        private string[] headers = default;
-        private string path = default;
-
-        // mob data
         private Dictionary<Guid, MobSkillData> mobSkillData = default;
-        private Dictionary<int, HashSet<Guid>> mobSkillDataForMob = default;
-        private Mob[] allMobs = default;
+        private Dictionary<int, HashSet<Guid>> mobIDToMobSkillDataID = default;
 
-        // skills       
-        private Dictionary<int, string> skillIDToName = default;
-        private Dictionary<int, int> skillIndexToID = default;
-        private Dictionary<int, (string SkillName, int SkillIndex)> skillIDToNameAndIndex = default;
-
-        // enums
         private Dictionary<MobSkillData.MobState, (string StateName, int StateIndex)> allStateOptions;
         private Dictionary<MobSkillData.MobTarget, (string TargetName, int TargetIndex)> allTargetOptions;
         private Dictionary<MobSkillData.SkillCondition, (string ConditionName, int ConditionIndex)> allConditionOptions;
 
-        public bool IsLoaded => mobSkillDataForMob.Count > 0;
-        public Mob[] AllMobs => allMobs;
-        public IReadOnlyDictionary<Guid, MobSkillData> AllMobData => mobSkillData;
-        public IReadOnlyDictionary<int, (string SkillName, int SkillIndex)> AllSkillOptions => skillIDToNameAndIndex;
+        public bool IsLoaded => mobSkillData.Count > 0;
+        public IReadOnlyDictionary<Guid, MobSkillData> MobSkillData => mobSkillData;
         public IReadOnlyDictionary<MobSkillData.MobState, (string StateName, int StateIndex)> AllStateOptions => allStateOptions;
         public IReadOnlyDictionary<MobSkillData.MobTarget, (string TargetName, int TargetIndex)> AllTargetOptions => allTargetOptions;
         public IReadOnlyDictionary<MobSkillData.SkillCondition, (string ConditionName, int ConditionIndex)> AllConditionOptions => allConditionOptions;
 
-        public event UnityAction OnSkillDBLoaded;
-        public event UnityAction<Guid> OnSkillChanged;
+        public event UnityAction<Guid> OnMobSkillAdded;
+        public event UnityAction<Guid> OnMobSkillChanged;
+        public event UnityAction<Guid> OnMobSkillRemoved;
+        public event UnityAction<int> OnMobSkillsCleared;
+        public event UnityAction OnValueChanged;
 
-        public SkillEditor(IUnityLogger logger, ISkillDBParser parser, ISkillDBBuilder builder)
+        public SkillEditor(IUnityLogger logger, MobProvider mobProvider, SkillProvider skillProvider)
         {
             this.logger = new UnityLoggerWrapper(logger);
-            this.parser = parser;
-            this.builder = builder;
+            this.mobProvider = mobProvider;
+            this.skillProvider = skillProvider;
 
             mobSkillData = new Dictionary<Guid, MobSkillData>();
-            mobSkillDataForMob = new Dictionary<int, HashSet<Guid>>();
-            skillIDToName = new Dictionary<int, string>();
+            mobIDToMobSkillDataID = new Dictionary<int, HashSet<Guid>>();
 
             allStateOptions = GetEnumValues<MobSkillData.MobState>()
                .OrderBy(x => (int)x)
@@ -64,10 +53,10 @@ namespace ROTools.Skills
                 .ToDictionary(x => x, y => (y.ToString(), (int)y));
         }
 
-        public MobSkillData[] GetMobSkills(int mobID)
+        public MobSkillData[] GetMobSkillData(int mobID)
         {
             var mobData = new List<MobSkillData>();
-            if (mobSkillDataForMob.TryGetValue(mobID, out HashSet<Guid> skillIDs))
+            if (mobIDToMobSkillDataID.TryGetValue(mobID, out HashSet<Guid> skillIDs))
             {
                 foreach (Guid id in skillIDs)
                 {
@@ -77,23 +66,58 @@ namespace ROTools.Skills
                     }
                 }
             }
-            else
-            {
-                logger.LogError($"No skills in list for mob {mobID}");
-            }
 
             return mobData
-                .OrderBy(x => x.SkillID)
+                .OrderBy(x => x.SkillID)                
                 .ThenBy(x => x.InstanceID)
                 .ToArray();
         }
 
+        public void AddMobSkillData(int mobID, int skillID)
+        {
+            if (mobProvider.TryGetMob(mobID, out var mob) && skillProvider.TryGetSkill(skillID, out Skill skill))
+            {
+                var data = Skills.MobSkillData.Default;
+                data.MobID = mob.ID;
+                data.Description = $"{mob.Name}@{skill.Name}";
+                data.SkillID = skillID;
+                data.InstanceID = data.GetGuid();
+                AddMobSkillData(data);                
+            }
+        }
+
+        public void AddMobSkillData(IEnumerable<MobSkillData> data)
+        {
+            foreach (var d in data)
+            {
+                AddMobSkillDataWithoutNotify(d);
+            }
+
+            OnValueChanged?.Invoke();
+        }
+
+        public void AddMobSkillData(MobSkillData data)
+        {
+            AddMobSkillDataWithoutNotify(data);
+            OnMobSkillAdded?.Invoke(data.InstanceID);
+            OnValueChanged?.Invoke();
+        }
+
+        private void AddMobSkillDataWithoutNotify(MobSkillData data)
+        {
+            mobIDToMobSkillDataID.TryAdd(data.MobID, new HashSet<Guid>());
+            mobIDToMobSkillDataID[data.MobID].Add(data.InstanceID);
+            mobSkillData.Add(data.InstanceID, data);
+        }
+
         public void UpdateSkillID(Guid instanceID, int skillIndex)
         {
-            if (TryGetMobSkillData(instanceID, out MobSkillData data) && skillIndexToID.TryGetValue(skillIndex, out int skillID))
+            if (TryGetMobSkillData(instanceID, out MobSkillData data) && skillProvider.TryGetSkillByIndex(skillIndex, out Skill skill))
             {
-                data.SkillID = skillID;
-                OnSkillChanged?.Invoke(instanceID);
+                data.SkillID = skill.ID;
+                data.UpdateDescriptionSkillName(skill.Name);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -102,7 +126,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.SkillLevel = level;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -111,7 +136,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Rate = rate;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -120,7 +146,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.CastTime = castTime;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -129,7 +156,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Delay = delay;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -138,7 +166,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out var data))
             {
                 data.State = (MobSkillData.MobState)stateIndex;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -147,7 +176,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out var data))
             {
                 data.Target = (MobSkillData.MobTarget)targetIndex;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -156,7 +186,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out var data))
             {
                 data.Condition = (MobSkillData.SkillCondition)conditionIndex;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -165,7 +196,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.ConditionValue = conditionValue;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -174,7 +206,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Emotion = emotion;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -183,7 +216,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Chat = chat;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -192,7 +226,8 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Values[index] = value;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
@@ -201,110 +236,31 @@ namespace ROTools.Skills
             if (TryGetMobSkillData(instanceID, out MobSkillData data))
             {
                 data.Extras[index] = extra;
-                OnSkillChanged?.Invoke(instanceID);
+                OnMobSkillChanged?.Invoke(instanceID);
+                OnValueChanged?.Invoke();
             }
         }
 
-        public void Load(string[] paths)
+        public void DeleteSkill(Guid instanceID)
         {
-            Clear();
-
-            if (paths.Length > 0 && !string.IsNullOrEmpty(paths[0]))
-            {
-                path = paths[0];
-
-                string content = File.ReadAllText(path);
-                var parsedContent = parser.Parse(content);
-                headers = parsedContent.headers;
-                MobSkillData[] skillData = parsedContent.data;
-                foreach (MobSkillData msd in skillData)
-                {
-                    mobSkillDataForMob.TryAdd(msd.MobID, new HashSet<Guid>());
-                    mobSkillDataForMob[msd.MobID].Add(msd.InstanceID);
-                    mobSkillData.TryAdd(msd.InstanceID, msd);
-                    skillIDToName.TryAdd(msd.SkillID, msd.GetDescriptionSkillName());
-                }
-
-                // build mobs
-                allMobs = mobSkillDataForMob.Keys
-                    .Select(x => CreateMob(x))
-                    .OrderBy(x => x.ID)
-                    .ToArray();
-
-                // build skill options
-                var orderedSkillOpts = skillIDToName
-                    .OrderBy(x => x.Key)
-                    .Select((x, i) => (skillID: x.Key, index: i, skillName: x.Value));
-
-                skillIndexToID = orderedSkillOpts.ToDictionary(x => x.index, y => y.skillID);
-                skillIDToNameAndIndex = orderedSkillOpts.ToDictionary(x => x.skillID, y => (y.skillName, y.index));
-
-                logger.LogInfo($"Loaded content from path {path}:\n{content}");
-                // logger.LogInfo($"Created DB:\n[{string.Join(",", mobSkillData.Values.SelectMany(x => x).Select(x => $"{x.MobID}:{x.SkillID}").ToArray())}]");
-            }
-
-            OnSkillDBLoaded?.Invoke();
+            mobSkillData.Remove(instanceID);
+            OnMobSkillRemoved?.Invoke(instanceID);
+            OnValueChanged?.Invoke();
         }
 
-        public void Save()
+        public void ClearSkills(int mobID)
         {
-            string directory = Path.GetDirectoryName(path);
-            string oldFileName = Path.GetFileNameWithoutExtension(path);
-            string extension = Path.GetExtension(path);
-
-            string newFilePath;
-            int counter = 1;
-
-            do
-            {
-                string newFilename = $"{oldFileName}({counter}){extension}";
-                newFilePath = Path.Combine(directory, newFilename);
-                counter++;
-            }
-            while (File.Exists(newFilePath));
-
-            MobSkillData[] data = mobSkillData.Values
-                .OrderBy(x => x.MobID)
-                .ThenBy(x => x.SkillID)
-                .ThenBy(x => (int)x.State)
-                .ThenBy(x => x.InstanceID)
-                .ToArray();            
-            
-            string content = builder.Build(headers, data);
-            File.WriteAllText(newFilePath, content);
-
-            logger.LogInfo($"Saving content at path {newFilePath}:\n{content}");
+            var ids = mobIDToMobSkillDataID[mobID];
+            ids.ForEach(x => DeleteSkill(x));
+            OnMobSkillsCleared?.Invoke(mobID);
+            OnValueChanged?.Invoke();
         }
 
         public void Clear()
         {
-            path = string.Empty;
-
-            mobSkillDataForMob.Clear();
+            mobIDToMobSkillDataID.Clear();
             mobSkillData.Clear();
-            allMobs = null;
-
-            skillIDToName.Clear();
-            skillIndexToID = null;
-            skillIDToNameAndIndex = null;
-        }
-
-        private Mob CreateMob(int mobID)
-        {
-            string name = $"{mobID}";
-            if (mobSkillDataForMob.TryGetValue(mobID, out HashSet<Guid> skillIDs) && skillIDs.Count > 0)
-            {
-                Guid firstID = skillIDs.FirstOrDefault();
-                MobSkillData skill = mobSkillData[firstID];
-                name = skill.GetDescriptionMobName();
-            }
-
-            return new Mob
-            {
-                ID = mobID,
-                Name = name,
-                Model = null,
-            };
+            OnValueChanged?.Invoke();
         }
 
         private T[] GetEnumValues<T>()

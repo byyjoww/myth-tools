@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ROTools.Skills
 {
@@ -106,6 +108,36 @@ namespace ROTools.Skills
             Alchemist,
         }
 
+        public static MobSkillData Default => new MobSkillData
+        {
+            // must set these values after creation
+            InstanceID = Guid.Empty,
+            MobID = 0,
+            Description = string.Empty,
+            SkillID = 0,
+
+            // default values
+            SkillLevel = 1,
+            Rate = 2000,
+            CastTime = 500,
+            Delay = 10000,
+            Cancelable = false,
+            Emotion = 0,
+            Chat = 0,
+            State = MobState.Any,
+            Target = MobTarget.Target,
+            Condition = SkillCondition.Always,
+            ConditionValue = 0,
+            Values = new int[] { 0, 0, 0, 0, 0, },
+            Extras = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, },
+        };
+
+        public void UpdateDescriptionSkillName(string name)
+        {
+            string mobName = GetDescriptionMobName();
+            Description = $"{mobName}@{name}";
+        }
+
         public string GetDescriptionMobName()
         {
             return Description
@@ -118,6 +150,68 @@ namespace ROTools.Skills
             return Description
                 .Split("@")
                 .LastOrDefault();
+        }
+
+        public Guid GetGuid()
+        {
+            return Guid.NewGuid();
+            //string line = BuildLine();
+            //return CreateGuidFromString(line);
+        }
+
+        public string BuildLine()
+        {
+            return BuildLine(this);
+        }
+
+        private Guid CreateGuidFromString(string input)
+        {
+            using (var md5 = MD5.Create())
+            {
+                byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+                return new Guid(hash);
+            }
+        }
+
+        private string BuildLine(MobSkillData skill)
+        {
+            return string.Join(",",
+                skill.MobID,
+                skill.Description,
+                skill.State.ToString().ToLower(),
+                skill.SkillID,
+                skill.SkillLevel,
+                skill.Rate,
+                skill.CastTime,
+                skill.Delay,
+                skill.Cancelable ? "yes" : "no",
+                skill.Target.ToString().ToLower(),
+                skill.Condition.ToString().ToLower(),
+                skill.ConditionValue,
+                skill.Values[0],
+                skill.Values[1],
+                skill.Values[2],
+                skill.Values[3],
+                skill.Values[4],
+                skill.Emotion,
+                skill.Chat,
+                skill.Extras[0],
+                skill.Extras[1],
+                skill.Extras[2],
+                skill.Extras[3],
+                skill.Extras[4],
+                skill.Extras[5],
+                skill.Extras[6],
+                skill.Extras[7],
+                skill.Extras[8],
+                skill.Extras[9],
+                skill.Extras[10],
+                skill.Extras[11],
+                skill.Extras[12],
+                skill.Extras[13],
+                skill.Extras[14],
+                skill.Extras[15]
+            );
         }
     }
 }

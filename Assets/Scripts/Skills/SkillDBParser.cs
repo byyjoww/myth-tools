@@ -1,8 +1,6 @@
 ﻿using SLS.Core.Logging;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace ROTools.Skills
@@ -71,43 +69,7 @@ namespace ROTools.Skills
                     continue;
                 }
 
-                string line = string.Join(",",
-                    skill.MobID,
-                    skill.Description,
-                    skill.State.ToString().ToLower(),
-                    skill.SkillID,
-                    skill.SkillLevel,
-                    skill.Rate,
-                    skill.CastTime,
-                    skill.Delay,
-                    skill.Cancelable ? "yes" : "no",
-                    skill.Target.ToString().ToLower(),
-                    skill.Condition.ToString().ToLower(),
-                    skill.ConditionValue,
-                    skill.Values[0],
-                    skill.Values[1],
-                    skill.Values[2],
-                    skill.Values[3],
-                    skill.Values[4],
-                    skill.Emotion,
-                    skill.Chat,
-                    skill.Extras[0],
-                    skill.Extras[1],
-                    skill.Extras[2],
-                    skill.Extras[3],
-                    skill.Extras[4],
-                    skill.Extras[5],
-                    skill.Extras[6],
-                    skill.Extras[7],
-                    skill.Extras[8],
-                    skill.Extras[9],
-                    skill.Extras[10],
-                    skill.Extras[11],
-                    skill.Extras[12],
-                    skill.Extras[13],
-                    skill.Extras[14]
-                );
-
+                string line = skill.BuildLine();
                 sb.AppendLine(line);
             }
 
@@ -133,9 +95,8 @@ namespace ROTools.Skills
                 return null;
             }
 
-            return new MobSkillData
-            {
-                InstanceID = CreateGuidFromString(line),
+            var data = new MobSkillData
+            {                
                 MobID = ParseInt(parts[0]),
                 Description = parts[1],
                 State = ParseEnum<MobSkillData.MobState>(parts[2]),
@@ -178,6 +139,9 @@ namespace ROTools.Skills
                     ParseInt(parts[34]),
                 },
             };
+
+            data.InstanceID = data.GetGuid();
+            return data;
         }
 
         private int ParseInt(string text)
@@ -199,15 +163,6 @@ namespace ROTools.Skills
             return Enum.TryParse(value: text, ignoreCase: true, out T result)
                 ? result
                 : default;
-        }
-
-        private Guid CreateGuidFromString(string input)
-        {
-            using (var md5 = MD5.Create())
-            {
-                byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-                return new Guid(hash);
-            }
         }
     }
 }

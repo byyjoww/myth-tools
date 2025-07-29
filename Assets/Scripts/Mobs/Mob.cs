@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace ROTools.Skills
+namespace ROTools.Mobs
 {
     public struct Mob
     {
