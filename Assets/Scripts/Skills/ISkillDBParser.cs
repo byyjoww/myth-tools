@@ -2,6 +2,6 @@
 {
     public interface ISkillDBParser
     {
-        (string[] headers, MobSkillData[] data) Parse(string content);
+        (string[] headers, SkillData[] data) Parse(string content);
     }
 }
