@@ -30,6 +30,7 @@ namespace ROTools.App
         private IMobSkillDBBuilder mobSkillDbBuilder = default;
         private IMobDBParser mobDbParser = default;
         private ISkillDBParser skillDbParser = default;
+        private MobSkillDBValidator mobSkillDBValidator = default;
 
         // providers
         private MobProvider mobProvider = default;
@@ -45,7 +46,7 @@ namespace ROTools.App
         public event UnityAction OnLoaded;
 
         public FileLoader(IUnityLogger logger, IMobSkillDBParser mobSkillDbParser, IMobSkillDBBuilder mobSkillDbBuilder, IMobDBParser mobDbParser, ISkillDBParser skillDbParser, 
-            MobProvider mobProvider, SkillProvider skillProvider, SkillEditor skillEditor)
+            MobProvider mobProvider, SkillProvider skillProvider, SkillEditor skillEditor, MobSkillDBValidator mobSkillDBValidator)
         {
             this.logger = new UnityLoggerWrapper(logger);
             this.mobSkillDbParser = mobSkillDbParser;
@@ -55,6 +56,7 @@ namespace ROTools.App
             this.mobProvider = mobProvider;
             this.skillProvider = skillProvider;
             this.skillEditor = skillEditor;
+            this.mobSkillDBValidator = mobSkillDBValidator;
         }
 
         public void Load(FilePaths paths)
@@ -75,37 +77,17 @@ namespace ROTools.App
                 mobs.AddRange(LoadMobDB(paths.MobDbRare));
                 mobs.AddRange(LoadMobDB(paths.MobDbMini));
                 mobs.AddRange(LoadMobDB(paths.MobDbBoss));
-
-                foreach (var grp in mobs.GroupBy(x => x.Id).Where(x => x.Count() > 1).ToArray())
-                {
-                    logger.LogDebug($"Duplicate entry for mob id {grp.Key}");
-                }                
-
-                var distinctMobs = mobs
-                    .GroupBy(x => x.Id)
-                    .Select(x => x.First())
-                    .ToDictionary(x => x.Id, y => y.Name)
-                    .ToArray();
-                mobProvider.AddMobs(distinctMobs);
+                mobProvider.AddMobs(mobs);
 
                 var skills = new List<SkillData>();
                 skills.AddRange(LoadSkillDB(paths.SkillDb));
                 skills.AddRange(LoadSkillDB(paths.SkillDbExtended));
-
-                foreach (var grp in skills.GroupBy(x => x.Id).Where(x => x.Count() > 1).ToArray())
-                {
-                    logger.LogDebug($"Duplicate entry for skill id {grp.Key}");
-                }
-
-                var distinctSkills = skills
-                    .GroupBy(x => x.Id)
-                    .Select(x => x.First())
-                    .ToDictionary(x => x.Id, y => y.Name)
-                    .ToArray();
-                skillProvider.AddSkills(distinctSkills);
+                skillProvider.AddSkills(skills);
 
                 var mobSkills = LoadMobSkillDB(paths.MobSkillDb);
                 skillEditor.AddMobSkillData(mobSkills);
+
+                mobSkillDBValidator.Validate((mobProvider as IMobSkillDBMobProvider).Mobs, skillProvider.Skills, mobSkills);
             }
 
             OnLoaded?.Invoke();
@@ -139,8 +121,8 @@ namespace ROTools.App
                     mobSkills.Add(msd);
                 }
 
-                mobProvider.AddMobs(mobs.ToArray());
-                skillProvider.AddSkills(skills.ToArray());
+                mobProvider.AddMobs(mobs.Select(x => new MobData { Id = x.Key, Name = x.Value }).ToArray());
+                skillProvider.AddSkills(skills.Select(x => new SkillData { Id = x.Key, Name = x.Value }).ToArray());
                 skillEditor.AddMobSkillData(mobSkills);
 
                 logger.LogInfo($"Loaded content from path {this.paths.MobSkillDb}:\n{content}");

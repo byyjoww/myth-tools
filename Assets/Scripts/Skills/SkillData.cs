@@ -1,4 +1,5 @@
 ﻿using System;
+using ROTools.Utils;
 using System.Collections.Generic;
 
 namespace ROTools.Skills
@@ -61,7 +62,7 @@ namespace ROTools.Skills
             Ground,
         }
 
-        public enum EDamageType 
+        public enum EDamageType
         {
             Unknown,
             Magic,
@@ -90,16 +91,12 @@ namespace ROTools.Skills
 
         public ETargetType GetTargetType()
         {
-            return Enum.TryParse(TargetType, out ETargetType tt) 
-                ? tt 
-                : ETargetType.Unknown;
+            return EnumExtensions.ParseEnumIgnoringCaseOrDefault<ETargetType>(TargetType);
         }
 
         public EDamageType GetDamageType()
         {
-            return Enum.TryParse(TargetType, out EDamageType dt)
-                ? dt
-                : EDamageType.Unknown;
+            return EnumExtensions.ParseEnumIgnoringCaseOrDefault<EDamageType>(Type);
         }
     }
 }

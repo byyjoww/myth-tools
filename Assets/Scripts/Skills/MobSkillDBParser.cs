@@ -1,4 +1,5 @@
-﻿using SLS.Core.Logging;
+﻿using ROTools.Utils;
+using SLS.Core.Logging;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -99,15 +100,15 @@ namespace ROTools.Skills
             {                
                 MobID = ParseInt(parts[0]),
                 Description = parts[1],
-                State = ParseEnum<MobSkillData.MobState>(parts[2]),
+                State = EnumExtensions.ParseEnumIgnoringCaseOrDefault<MobSkillData.MobState>(parts[2]),
                 SkillID = ParseInt(parts[3]),
                 SkillLevel = ParseInt(parts[4]),
                 Rate = ParseInt(parts[5]),
                 CastTime = ParseInt(parts[6]),
                 Delay = ParseInt(parts[7]),
                 Cancelable = ParseBool(parts[8]),
-                Target = ParseEnum<MobSkillData.MobTarget>(parts[9]),
-                Condition = ParseEnum<MobSkillData.SkillCondition>(parts[10]),
+                Target = EnumExtensions.ParseEnumIgnoringCaseOrDefault<MobSkillData.MobTarget>(parts[9]),
+                Condition = EnumExtensions.ParseEnumIgnoringCaseOrDefault<MobSkillData.SkillCondition>(parts[10]),
                 ConditionValue = ParseInt(parts[11]),
                 Values = new int[]
                 {
@@ -156,13 +157,6 @@ namespace ROTools.Skills
             return bool.TryParse(text, out bool result)
                 ? result
                 : false;
-        }
-
-        private T ParseEnum<T>(string text) where T : struct
-        {
-            return Enum.TryParse(value: text, ignoreCase: true, out T result)
-                ? result
-                : default;
         }
     }
 }

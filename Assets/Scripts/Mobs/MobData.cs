@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ROTools.Utils;
+using System;
 using System.Collections.Generic;
 
 namespace ROTools.Mobs
@@ -13,9 +14,20 @@ namespace ROTools.Mobs
             public bool? StealProtected { get; set; }
         }
 
+        public enum EClass
+        {
+            Unknown = 0,
+            Normal = 1,
+            Elite = 2,
+            Rare = 3,
+            Mini = 4,
+            Boss = 5,
+        }
+
         public int Id { get; set; }
         public string AegisName { get; set; }
         public string Name { get; set; }
+        public string Class { get; set; }
         public bool Omnibook { get; set; }
         public int Level { get; set; }
         public int Hp { get; set; }
@@ -43,6 +55,36 @@ namespace ROTools.Mobs
         public int AttackMotion { get; set; }
         public int DamageMotion { get; set; }
         public string Ai { get; set; }
+        public Dictionary<string, string> Modes { get; set; }
         public List<Drop> Drops { get; set; }
+
+        public EClass GetClass()
+        {
+            string mobClass = Class != string.Empty
+                ? Class
+                : EClass.Normal.ToString();
+
+            var parsedClass = EnumExtensions.ParseEnumIgnoringCaseOrDefault<EClass>(mobClass);
+            if (parsedClass == EClass.Boss)
+            {
+                return TryGetMode("mvp", out bool isMvp) && isMvp
+                    ? EClass.Boss
+                    : EClass.Mini;
+            }
+
+            return parsedClass;
+        }
+
+        public bool TryGetMode(string key, out bool value)
+        {
+            value = false;
+            if (Modes == null) { return false; }
+            return Modes.TryGetValue(key, out string modeString) && bool.TryParse(modeString, out value);
+        }
+
+        public Mob.EClass GetMobClass()
+        {
+            return (Mob.EClass)GetClass();
+        }
     }
 }

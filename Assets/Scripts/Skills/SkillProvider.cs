@@ -14,6 +14,7 @@ namespace ROTools.Skills
         private Dictionary<int, (Skill Skill, int SkillIndex)> skillIDToSkillAndIndex = default;
 
         public bool IsLoaded => skills.Count > 0;
+        public IReadOnlyDictionary<int, Skill> Skills => skills;
         public IReadOnlyDictionary<int, (Skill Skill, int SkillIndex)> AllSkillOptions => skillIDToSkillAndIndex;
 
         public event UnityAction OnValueChanged;
@@ -24,30 +25,36 @@ namespace ROTools.Skills
             skills = new Dictionary<int, Skill>();
         }
 
-        public void AddSkill(int skillID, string skillName)
+        public void AddSkill(SkillData skill)
         {
-            AddSkillWithoutNotify(skillID, skillName);
+            AddSkillWithoutNotify(skill);
             RebuildSkillDictionaries();
             TriggerOnValueChanged();
         }
 
-        public void AddSkills(IEnumerable<KeyValuePair<int, string>> skills)
+        public void AddSkills(IEnumerable<SkillData> skills)
         {
-            foreach (var kvp in skills)
+            foreach (var skill in skills)
             {
-                AddSkillWithoutNotify(kvp.Key, kvp.Value);
+                AddSkillWithoutNotify(skill);
             }
 
             RebuildSkillDictionaries();
             TriggerOnValueChanged();
         }
 
-        private void AddSkillWithoutNotify(int skillID, string skillName)
+        private void AddSkillWithoutNotify(SkillData skill)
         {
-            skills.TryAdd(skillID, new Skill
+            if (skills.ContainsKey(skill.Id))
             {
-                ID = skillID,
-                Name = skillName,
+                logger.LogDebug($"Duplicate entry for skill {skill.Id} ({skill.Name})");
+            }
+
+            skills.TryAdd(skill.Id, new Skill
+            {
+                Id = skill.Id,
+                Name = skill.Name,
+                Target = skill.GetTargetType(),                
             });
         }
 

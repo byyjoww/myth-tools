@@ -12,9 +12,7 @@ namespace ROTools.UI
             public string Name { get; set; }
 
             public string SkillText { get; set; }
-            public int CurrentSkill { get; set; }
-            public string[] SkillOptions { get; set; }
-            public UnityAction<int> OnSkillOptionChanged { get; set; }
+            public ComboBox.PresenterModel SkillModel { get; set; }
 
             public string SkillLevelText { get; set; }
             public string SkillLevel { get; set; }
@@ -68,7 +66,7 @@ namespace ROTools.UI
 
         [Header("Mob Skill Left")]
         [SerializeField] private InfoField mobName = default;
-        [SerializeField] private DropdownField skill = default;
+        [SerializeField] private ComboBoxField skill = default;
         [SerializeField] private InputField level = default;
         [SerializeField] private InputField rate = default;
         [SerializeField] private InputField castTime = default;
@@ -105,7 +103,7 @@ namespace ROTools.UI
         public void Setup(PresenterModel model)
         {            
             mobName.Setup(model.NameText, model.Name);
-            skill.Setup(model.SkillText, model.SkillOptions, model.CurrentSkill, model.OnSkillOptionChanged);
+            skill.Setup(model.SkillText, model.SkillModel);
             level.Setup(model.SkillLevelText, model.SkillLevel, model.OnSkillLevelChanged);
             rate.Setup(model.RateText, model.Rate, model.OnSkillRateChanged);
             castTime.Setup(model.CastTimeText, model.CastTime, model.OnSkillCastTimeChanged);

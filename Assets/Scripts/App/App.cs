@@ -39,6 +39,7 @@ namespace ROTools.App
         private SkillProvider skillProvider = default;
         private SkillEditor skillEditor = default;
         private FileLoader fileProvider = default;
+        private MobSkillDBValidator mobSkillDBValidator = default;
 
         public void Start() => Init();
 
@@ -48,6 +49,7 @@ namespace ROTools.App
         {
             logger = new UnityLogger(logLevel);
 
+            mobSkillDBValidator = new MobSkillDBValidator(logger);
             mobSkillDBParser = new MobSkillDBParser(logger);
             mobDBParser = new MobDBParser(logger);
             skillDBParser = new SkillDBParser(logger);
@@ -55,7 +57,7 @@ namespace ROTools.App
             mobProvider = new MobProvider(logger);
             skillProvider = new SkillProvider(logger);
             skillEditor = new SkillEditor(logger, mobProvider, skillProvider);
-            fileProvider = new FileLoader(logger, mobSkillDBParser, mobSkillDBParser, mobDBParser, skillDBParser, mobProvider, skillProvider, skillEditor);
+            fileProvider = new FileLoader(logger, mobSkillDBParser, mobSkillDBParser, mobDBParser, skillDBParser, mobProvider, skillProvider, skillEditor, mobSkillDBValidator);
 
             loadingViewController = new LoadingViewController(loadingView);
             loadingViewController?.Init();

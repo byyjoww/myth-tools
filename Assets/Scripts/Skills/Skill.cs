@@ -2,7 +2,8 @@
 {
     public class Skill
     {
-        public int ID;
+        public int Id;
         public string Name;
+        public SkillData.ETargetType Target;
     }
 }

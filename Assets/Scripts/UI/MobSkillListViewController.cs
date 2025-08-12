@@ -95,7 +95,12 @@ namespace ROTools.UI
                         {
                             popup.Show("Skill Name:", TMPro.TMP_InputField.ContentType.Standard, "Add", (val2) =>
                             {
-                                skillProvider.AddSkill(skillID, val2);
+                                skillProvider.AddSkill(new SkillData
+                                {
+                                    Id = skillID,
+                                    Name = val2,
+                                    TargetType = SkillData.ETargetType.Unknown.ToString(),
+                                });
                                 model.AddMobSkillData(mobID, skillID);
                             });
                         }

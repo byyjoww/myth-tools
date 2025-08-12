@@ -1,23 +1,27 @@
 ﻿using ROTools.Mobs;
+using ROTools.Utils;
 using SLS.UI;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 
 namespace ROTools.UI
 {
-    public class MobListViewController : ViewController<MobListView, MobProvider>
+    public class MobListViewController : ViewController<MobListView, IMobSkillDBMobProvider>
     {
         private InputPopupViewController popup = default;
 
+        private Dictionary<Mob.EClass, string[]> classSearchOptsDict = default;
         private int selectedMobID = -1;
 
         public event UnityAction<int> OnMobSelected;
 
-        public MobListViewController(MobListView view, MobProvider model, InputPopupViewController popup) : base(view, model)
+        public MobListViewController(MobListView view, IMobSkillDBMobProvider model, InputPopupViewController popup) : base(view, model)
         {
             this.popup = popup;
+            classSearchOptsDict = CreateClassSearchOpts();
         }
 
         protected override void OnInit()
@@ -45,12 +49,12 @@ namespace ROTools.UI
             selectedMobID = -1;
 
             Mob[] mobs = model.Mobs.Values
-                .OrderBy(x => x.ID)
+                .OrderBy(x => x.Id)
                 .ToArray();
 
             if (mobs.Length > 0)
             {
-                selectedMobID = mobs.FirstOrDefault().ID;
+                selectedMobID = mobs.FirstOrDefault().Id;
             }
 
             OnMobSelected?.Invoke(selectedMobID);
@@ -58,7 +62,7 @@ namespace ROTools.UI
             view.Setup(new MobListView.PresenterModel
             {
                 AddMobText = "+",
-                CanAddMob = model.IsLoaded,
+                CanAddMob = false,
                 OnAddMob = delegate
                 {
                     popup.Show("Mob ID:", TMPro.TMP_InputField.ContentType.IntegerNumber, "Add", hideOnSubmit: false, onSubmit: (val1) =>
@@ -66,7 +70,11 @@ namespace ROTools.UI
                         popup.Show("Mob Name:", TMPro.TMP_InputField.ContentType.Standard, "Add", (val2) =>
                         {
                             int mobID = ParseInt(val1);
-                            model.AddMob(mobID, val2);
+                            (model as MobProvider).AddMob(new MobData
+                            {
+                                Id = mobID,
+                                Name = val2,
+                            });
                         });
                     });
                 },
@@ -74,31 +82,24 @@ namespace ROTools.UI
                 CanSearchMob = model.IsLoaded,
                 OnSearchMob = (txt) =>
                 {
-                    bool Evaluate(int mobID, string mobName)
+                    view.FilterMobs((mobID) =>
                     {
-                        if (string.IsNullOrWhiteSpace(txt))
-                        {
-                            return true;
-                        }
-
-                        return mobName.IndexOf(txt, StringComparison.OrdinalIgnoreCase) >= 0
-                            || mobID.ToString().IndexOf(txt, StringComparison.OrdinalIgnoreCase) >= 0;
-                    }
-
-                    view.FilterMobs(Evaluate);
+                        return model.Mobs.TryGetValue(mobID, out var mob)
+                            && ShouldInclude(mob, txt);
+                    });
                 },
 
                 Mobs = mobs.Select(m => new MobDataView.PresenterModel
                 {
-                    ID = m.ID,
+                    ID = m.Id,
                     Name = m.GetDisplayName(),
                     OnSelect = delegate
                     {
-                        selectedMobID = m.ID;
-                        view.HighlightMobData(m.ID);
-                        OnMobSelected?.Invoke(m.ID);
+                        selectedMobID = m.Id;
+                        view.HighlightMobData(m.Id);
+                        OnMobSelected?.Invoke(m.Id);
                     },
-                    IsSelected = selectedMobID == m.ID,
+                    IsSelected = selectedMobID == m.Id,
                 }).ToArray()
             });
 
@@ -110,6 +111,46 @@ namespace ROTools.UI
             return int.TryParse(value, out var result)
                 ? result
                 : 0;
+        }
+
+        private bool ShouldInclude(Mob mob, string txt)
+        {
+            if (string.IsNullOrWhiteSpace(txt))
+            {
+                return true;
+            }
+
+            var searchOpts = GetSearchOpts(mob);
+            return searchOpts.Any(x => x.ContainsText(txt));
+        }
+
+        private IEnumerable<string> GetSearchOpts(Mob mob)
+        {
+            var defaultSearchOpts = new string[]
+            {
+                mob.Name,
+                mob.Id.ToString(),
+            };
+
+            return classSearchOptsDict.TryGetValue(mob.Class, out var classSearchOpts)
+                ? defaultSearchOpts.Concat(classSearchOpts)
+                : defaultSearchOpts;
+        }
+
+        private Dictionary<Mob.EClass, string[]> CreateClassSearchOpts()
+        {
+            return new Dictionary<Mob.EClass, string[]>()
+            {
+                { Mob.EClass.Unknown, new string[] { Mob.EClass.Unknown.ToString() } },
+                { Mob.EClass.Normal, new string[] { Mob.EClass.Normal.ToString() } },
+                { Mob.EClass.Elite, new string[] { Mob.EClass.Elite.ToString() } },
+                { Mob.EClass.Rare, new string[] { Mob.EClass.Rare.ToString() } },
+                { Mob.EClass.Mini, new string[] { Mob.EClass.Mini.ToString(), "miniboss", "boss" } },
+                { Mob.EClass.Mvp, new string[] { Mob.EClass.Mvp.ToString(), "boss" } },
+                { Mob.EClass.All, new string[] { Mob.EClass.All.ToString(), } },
+                { Mob.EClass.Boss, new string[] { Mob.EClass.Boss.ToString(), } },
+                { Mob.EClass.NonBoss, new string[] { Mob.EClass.NonBoss.ToString(), } },
+            };
         }
     }
 }

@@ -11,8 +11,8 @@ namespace ROTools.Skills
     public class SkillEditor
     {
         private IUnityLogger logger = default;
-        private MobProvider mobProvider = default;
-        private SkillProvider skillProvider = default;
+        private IMobSkillDBMobProvider mobProvider = default;
+        private SkillProvider skillProvider = default;        
 
         private Dictionary<Guid, MobSkillData> mobSkillData = default;
         private Dictionary<int, HashSet<Guid>> mobIDToMobSkillDataID = default;
@@ -33,7 +33,7 @@ namespace ROTools.Skills
         public event UnityAction<int> OnMobSkillsCleared;
         public event UnityAction OnValueChanged;
 
-        public SkillEditor(IUnityLogger logger, MobProvider mobProvider, SkillProvider skillProvider)
+        public SkillEditor(IUnityLogger logger, IMobSkillDBMobProvider mobProvider, SkillProvider skillProvider)
         {
             this.logger = new UnityLoggerWrapper(logger);
             this.mobProvider = mobProvider;
@@ -68,7 +68,7 @@ namespace ROTools.Skills
             }
 
             return mobData
-                .OrderBy(x => x.SkillID)                
+                .OrderBy(x => x.SkillID)
                 .ThenBy(x => x.InstanceID)
                 .ToArray();
         }
@@ -78,11 +78,11 @@ namespace ROTools.Skills
             if (mobProvider.TryGetMob(mobID, out var mob) && skillProvider.TryGetSkill(skillID, out Skill skill))
             {
                 var data = Skills.MobSkillData.Default;
-                data.MobID = mob.ID;
+                data.MobID = mob.Id;
                 data.Description = $"{mob.Name}@{skill.Name}";
                 data.SkillID = skillID;
                 data.InstanceID = data.GetGuid();
-                AddMobSkillData(data);                
+                AddMobSkillData(data);
             }
         }
 
@@ -114,7 +114,7 @@ namespace ROTools.Skills
         {
             if (TryGetMobSkillData(instanceID, out MobSkillData data) && skillProvider.TryGetSkillByIndex(skillIndex, out Skill skill))
             {
-                data.SkillID = skill.ID;
+                data.SkillID = skill.Id;
                 data.UpdateDescriptionSkillName(skill.Name);
                 OnMobSkillChanged?.Invoke(instanceID);
                 OnValueChanged?.Invoke();

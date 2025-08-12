@@ -29,7 +29,6 @@ namespace ROTools.UI
         [SerializeField] private ViewElementPoolSpawner<MobDataView> mobDataViewPool = default;
 
         private Dictionary<int, MobDataView> spawnedMobData = new Dictionary<int, MobDataView>();
-        private Dictionary<int, string> spawnedMobIDToName = new Dictionary<int, string>();
         private MobDataView selectedMobData = default;
 
         public void Setup(PresenterModel model)
@@ -40,18 +39,17 @@ namespace ROTools.UI
             SetupInputField(search, string.Empty, model.OnSearchMob, model.CanSearchMob);
 
             spawnedMobData.Clear();
-            spawnedMobIDToName.Clear();
             ClearSelectedMobData();
 
             LoadMobs(model.Mobs);
         }
 
-        public void FilterMobs(Func<int, string, bool> evaluateFunc)
+        public void FilterMobs(Func<int, bool> evaluateFunc)
         {
             spawnedMobData.ForEach(kvp =>
             {
                 int mobID = kvp.Key;
-                bool isActive = spawnedMobIDToName.TryGetValue(mobID, out string name) && evaluateFunc(mobID, name);
+                bool isActive = evaluateFunc(mobID);
                 kvp.Value.gameObject.SetActive(isActive);
             });
         }
@@ -87,7 +85,6 @@ namespace ROTools.UI
 
                 // cache it for updating later
                 spawnedMobData.Add(data.ID, view);
-                spawnedMobIDToName.Add(data.ID, data.Name);
                 if (data.IsSelected)
                 {
                     ClearSelectedMobData();
